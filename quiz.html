@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Spotlight Quiz</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..900&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#181225;
+    --ink-soft:#241b38;
+    --card:#FBF4E6;
+    --card-edge:#EADFC6;
+    --gold:#F2B705;
+    --gold-deep:#C98A05;
+    --coral:#F2542D;
+    --teal:#1E9E8C;
+    --text-on-ink:#F4EFE3;
+    --text-muted: #BDB3D6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background: radial-gradient(circle at 50% -10%, #2b2046 0%, var(--ink) 55%, #0f0a1c 100%);
+    font-family:'Inter', sans-serif;
+    color:var(--text-on-ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+    overflow-x:hidden;
+  }
+  .stage{
+    width:100%;
+    max-width:640px;
+    position:relative;
+  }
+
+  /* ----- Marquee bulb border (signature element) ----- */
+  .marquee{
+    position:relative;
+    padding:6px;
+    border-radius:28px;
+    background: linear-gradient(135deg, #3a2b5c, #2a1f47);
+  }
+  .marquee::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:28px;
+    padding:6px;
+    background: repeating-linear-gradient(
+      to right,
+      var(--gold) 0 8px,
+      transparent 8px 26px
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity:.9;
+    animation: chase 1.6s linear infinite;
+  }
+  @keyframes chase{
+    0%{ background-position: 0 0; }
+    100%{ background-position: 34px 0; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .marquee::before{ animation:none; }
+  }
+
+  .card{
+    background:var(--card);
+    border-radius:22px;
+    padding:34px 30px 28px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.55);
+    color:#241b38;
+    position:relative;
+  }
+
+  /* header */
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--gold-deep);
+    font-weight:700;
+    margin:0 0 6px;
+  }
+  h1.title{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:clamp(28px,6vw,38px);
+    margin:0 0 4px;
+    line-height:1.05;
+  }
+  .subtitle{
+    color:#6b6080;
+    font-size:14.5px;
+    margin:0 0 22px;
+  }
+
+  /* ---- screens ---- */
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  /* setup screen */
+  .cat-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin:18px 0 24px;
+  }
+  .cat-btn{
+    border:2px solid var(--card-edge);
+    background:#fff;
+    border-radius:14px;
+    padding:16px 14px;
+    text-align:left;
+    cursor:pointer;
+    font-family:'Inter';
+    transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .cat-btn:hover{ transform:translateY(-2px); border-color:var(--gold); }
+  .cat-btn.selected{ border-color:var(--gold-deep); background:#FFF6DD; box-shadow:0 6px 0 -2px var(--gold-deep) inset; }
+  .cat-name{ font-weight:700; font-size:15px; display:block; }
+  .cat-count{ font-size:12.5px; color:#8a7fa8; }
+
+  .start-btn, .next-btn, .retry-btn{
+    width:100%;
+    border:none;
+    border-radius:14px;
+    background:var(--gold-deep);
+    color:#221705;
+    font-weight:800;
+    font-size:16px;
+    padding:15px;
+    cursor:pointer;
+    letter-spacing:.01em;
+    transition: filter .15s ease, transform .1s ease;
+  }
+  .start-btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .start-btn:not(:disabled):hover, .next-btn:hover, .retry-btn:hover{ filter:brightness(1.08); }
+  .start-btn:not(:disabled):active, .next-btn:active, .retry-btn:active{ transform:scale(.98); }
+
+  /* quiz screen */
+  .progress-row{
+    display:flex; align-items:center; gap:10px; margin-bottom:18px;
+  }
+  .dots{ display:flex; gap:6px; flex:1; }
+  .dot{ height:6px; flex:1; border-radius:4px; background:var(--card-edge); overflow:hidden; }
+  .dot.filled{ background:var(--gold-deep); }
+  .score-flip{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    background:#241b38;
+    color:var(--gold);
+    border-radius:8px;
+    padding:5px 10px;
+    font-size:14px;
+    min-width:54px;
+    text-align:center;
+  }
+
+  .q-text{
+    font-family:'Fraunces', serif;
+    font-size:clamp(19px,3.4vw,23px);
+    font-weight:600;
+    line-height:1.32;
+    margin:4px 0 22px;
+  }
+  .options{ display:flex; flex-direction:column; gap:10px; margin-bottom:22px; }
+  .opt{
+    display:flex; align-items:center; gap:12px;
+    border:2px solid var(--card-edge);
+    background:#fff;
+    border-radius:13px;
+    padding:13px 14px;
+    cursor:pointer;
+    font-size:15px;
+    font-weight:500;
+    text-align:left;
+    transition: border-color .12s ease, background .12s ease;
+  }
+  .opt:hover:not(.locked){ border-color:var(--gold); background:#FFFBEF; }
+  .opt .letter{
+    width:26px; height:26px; border-radius:8px;
+    background:var(--ink-soft); color:#fff;
+    font-size:12.5px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .opt.correct{ border-color:var(--teal); background:#E7F7F2; }
+  .opt.correct .letter{ background:var(--teal); }
+  .opt.wrong{ border-color:var(--coral); background:#FDEAE3; }
+  .opt.wrong .letter{ background:var(--coral); }
+  .opt.locked{ cursor:default; }
+  .opt.dim{ opacity:.55; }
+
+  .feedback{
+    font-size:13.5px;
+    font-weight:600;
+    min-height:18px;
+    margin:0 0 14px;
+  }
+  .feedback.correct{ color:var(--teal); }
+  .feedback.wrong{ color:var(--coral); }
+
+  /* results screen */
+  .result-badge{
+    width:104px; height:104px;
+    border-radius:50%;
+    background:conic-gradient(var(--gold-deep) calc(var(--pct,0)*1%), var(--card-edge) 0);
+    display:flex; align-items:center; justify-content:center;
+    margin:6px auto 18px;
+  }
+  .result-badge .inner{
+    width:82px; height:82px; border-radius:50%;
+    background:var(--card);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .result-badge .pct{ font-family:'Fraunces', serif; font-weight:800; font-size:22px; }
+  .result-badge .pct-label{ font-size:10px; color:#8a7fa8; letter-spacing:.06em; }
+  .result-line{ text-align:center; font-size:15px; color:#4a4063; margin-bottom:22px; }
+  .result-title{ text-align:center; }
+
+  footer.note{
+    text-align:center;
+    color:var(--text-muted);
+    font-size:12px;
+    margin-top:18px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="marquee">
+    <div class="card">
+
+      <!-- ===== SETUP SCREEN ===== -->
+      <section class="screen active" id="setup">
+        <p class="eyebrow">Spotlight Quiz</p>
+        <h1 class="title">Step up to the mic.</h1>
+        <p class="subtitle">Pick a category, then answer 5 questions against the clock-free spotlight.</p>
+
+        <div class="cat-grid" id="catGrid"></div>
+
+        <button class="start-btn" id="startBtn" disabled>Choose a category to begin</button>
+      </section>
+
+      <!-- ===== QUIZ SCREEN ===== -->
+      <section class="screen" id="quiz">
+        <div class="progress-row">
+          <div class="dots" id="dots"></div>
+          <div class="score-flip" id="scoreFlip">0 / 0</div>
+        </div>
+        <p class="eyebrow" id="catLabel">Category</p>
+        <p class="q-text" id="qText">Question text</p>
+        <div class="options" id="options"></div>
+        <p class="feedback" id="feedback">&nbsp;</p>
+        <button class="next-btn" id="nextBtn">Lock in answer</button>
+      </section>
+
+      <!-- ===== RESULTS SCREEN ===== -->
+      <section class="screen" id="results">
+        <p class="eyebrow result-title">Final Tally</p>
+        <h1 class="title result-title" id="resultHeadline">Take a bow.</h1>
+        <div class="result-badge" id="resultBadge"><div class="inner">
+          <span class="pct" id="resultPct">0%</span>
+          <span class="pct-label">SCORE</span>
+        </div></div>
+        <p class="result-line" id="resultLine">You answered 0 of 0 correctly.</p>
+        <button class="retry-btn" id="retryBtn">Back to categories</button>
+      </section>
+
+    </div>
+  </div>
+  <footer class="note">Built for one — no login, no leaderboard. Just you and the spotlight.</footer>
+</div>
+
+<script>
+const QUESTION_BANK = {
+  general: {
+    name: "General Knowledge",
+    questions: [
+      { q: "Which planet is known as the Red Planet?", options: ["Venus","Mars","Jupiter","Saturn"], answer: 1 },
+      { q: "What is the largest ocean on Earth?", options: ["Atlantic","Indian","Arctic","Pacific"], answer: 3 },
+      { q: "How many continents are there on Earth?", options: ["5","6","7","8"], answer: 2 },
+      { q: "What is the national currency of Japan?", options: ["Won","Yuan","Yen","Ringgit"], answer: 2 },
+      { q: "Which gas do plants primarily absorb for photosynthesis?", options: ["Oxygen","Carbon dioxide","Nitrogen","Hydrogen"], answer: 1 }
+    ]
+  },
+  science: {
+    name: "Science",
+    questions: [
+      { q: "What is the chemical symbol for Gold?", options: ["Ag","Au","Gd","Go"], answer: 1 },
+      { q: "What force keeps planets in orbit around the Sun?", options: ["Magnetism","Friction","Gravity","Tension"], answer: 2 },
+      { q: "How many bones are there in the adult human body?", options: ["206","186","226","246"], answer: 0 },
+      { q: "What part of the cell contains genetic material?", options: ["Cytoplasm","Nucleus","Ribosome","Mitochondria"], answer: 1 },
+      { q: "What is the speed of light approximately?", options: ["3,000 km/s","30,000 km/s","300,000 km/s","3,000,000 km/s"], answer: 2 }
+    ]
+  },
+  history: {
+    name: "History",
+    questions: [
+      { q: "In which year did World War II end?", options: ["1942","1945","1948","1950"], answer: 1 },
+      { q: "Who was the first man to walk on the Moon?", options: ["Buzz Aldrin","Yuri Gagarin","Neil Armstrong","John Glenn"], answer: 2 },
+      { q: "The Great Wall was built mainly to protect which country?", options: ["Japan","China","India","Korea"], answer: 1 },
+      { q: "Which ancient civilization built the pyramids of Giza?", options: ["Mayans","Romans","Egyptians","Greeks"], answer: 2 },
+      { q: "Who is known as the founder of Pakistan?", options: ["Liaquat Ali Khan","Allama Iqbal","Muhammad Ali Jinnah","Sir Syed Ahmed Khan"], answer: 2 }
+    ]
+  },
+  sports: {
+    name: "Sports",
+    questions: [
+      { q: "How many players are on a cricket team on the field?", options: ["9","10","11","12"], answer: 2 },
+      { q: "In which sport would you perform a slam dunk?", options: ["Volleyball","Basketball","Tennis","Badminton"], answer: 1 },
+      { q: "How often are the Summer Olympic Games held?", options: ["Every 2 years","Every 3 years","Every 4 years","Every 5 years"], answer: 2 },
+      { q: "What shape is a football (soccer) pitch?", options: ["Square","Circle","Rectangle","Oval"], answer: 2 },
+      { q: "Which country has won the most FIFA World Cups?", options: ["Germany","Argentina","Brazil","Italy"], answer: 2 }
+    ]
+  }
+};
+
+let selectedCat = null;
+let questions = [];
+let current = 0;
+let score = 0;
+let locked = false;
+
+const els = {
+  setup: document.getElementById('setup'),
+  quiz: document.getElementById('quiz'),
+  results: document.getElementById('results'),
+  catGrid: document.getElementById('catGrid'),
+  startBtn: document.getElementById('startBtn'),
+  dots: document.getElementById('dots'),
+  scoreFlip: document.getElementById('scoreFlip'),
+  catLabel: document.getElementById('catLabel'),
+  qText: document.getElementById('qText'),
+  options: document.getElementById('options'),
+  feedback: document.getElementById('feedback'),
+  nextBtn: document.getElementById('nextBtn'),
+  resultBadge: document.getElementById('resultBadge'),
+  resultPct: document.getElementById('resultPct'),
+  resultLine: document.getElementById('resultLine'),
+  resultHeadline: document.getElementById('resultHeadline'),
+  retryBtn: document.getElementById('retryBtn')
+};
+
+function showScreen(name){
+  [els.setup, els.quiz, els.results].forEach(s => s.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+}
+
+function buildCategoryGrid(){
+  els.catGrid.innerHTML = '';
+  Object.entries(QUESTION_BANK).forEach(([key, cat]) => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.innerHTML = `<span class="cat-name">${cat.name}</span><span class="cat-count">${cat.questions.length} questions</span>`;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedCat = key;
+      els.startBtn.disabled = false;
+      els.startBtn.textContent = `Start the ${cat.name} round`;
+    });
+    els.catGrid.appendChild(btn);
+  });
+}
+buildCategoryGrid();
+
+els.startBtn.addEventListener('click', () => {
+  if(!selectedCat) return;
+  questions = QUESTION_BANK[selectedCat].questions;
+  current = 0;
+  score = 0;
+  buildDots();
+  showScreen('quiz');
+  renderQuestion();
+});
+
+function buildDots(){
+  els.dots.innerHTML = '';
+  questions.forEach(() => {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    els.dots.appendChild(d);
+  });
+}
+
+function updateDots(){
+  const dotEls = els.dots.children;
+  for(let i=0;i<dotEls.length;i++){
+    dotEls[i].classList.toggle('filled', i < current);
+  }
+}
+
+function renderQuestion(){
+  locked = false;
+  const item = questions[current];
+  els.catLabel.textContent = `${QUESTION_BANK[selectedCat].name} · Question ${current+1} of ${questions.length}`;
+  els.qText.textContent = item.q;
+  els.scoreFlip.textContent = `${score} / ${questions.length}`;
+  els.feedback.textContent = '\u00A0';
+  els.feedback.className = 'feedback';
+  els.nextBtn.textContent = 'Lock in answer';
+  els.nextBtn.disabled = false;
+  updateDots();
+
+  els.options.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  item.options.forEach((optText, idx) => {
+    const opt = document.createElement('button');
+    opt.className = 'opt';
+    opt.innerHTML = `<span class="letter">${letters[idx]}</span><span>${optText}</span>`;
+    opt.addEventListener('click', () => selectOption(idx));
+    opt.dataset.idx = idx;
+    els.options.appendChild(opt);
+  });
+
+  let selectedIdx = null;
+  window.__selectedIdx = null;
+}
+
+function selectOption(idx){
+  if(locked) return;
+  window.__selectedIdx = idx;
+  Array.from(els.options.children).forEach(opt => {
+    opt.style.outline = (Number(opt.dataset.idx) === idx) ? '2px solid var(--gold-deep)' : 'none';
+  });
+}
+
+els.nextBtn.addEventListener('click', () => {
+  const item = questions[current];
+  if(!locked){
+    if(window.__selectedIdx === null || window.__selectedIdx === undefined){
+      els.feedback.textContent = 'Pick an answer first — the spotlight is waiting.';
+      els.feedback.className = 'feedback wrong';
+      return;
+    }
+    locked = true;
+    const correctIdx = item.answer;
+    const chosenIdx = window.__selectedIdx;
+    Array.from(els.options.children).forEach(opt => {
+      const idx = Number(opt.dataset.idx);
+      opt.classList.add('locked');
+      if(idx === correctIdx) opt.classList.add('correct');
+      else if(idx === chosenIdx) opt.classList.add('wrong');
+      else opt.classList.add('dim');
+    });
+
+    if(chosenIdx === correctIdx){
+      score++;
+      els.feedback.textContent = 'Correct — the crowd approves.';
+      els.feedback.className = 'feedback correct';
+    } else {
+      els.feedback.textContent = `Not quite. The right answer was "${item.options[correctIdx]}".`;
+      els.feedback.className = 'feedback wrong';
+    }
+    els.scoreFlip.textContent = `${score} / ${questions.length}`;
+    els.nextBtn.textContent = current === questions.length - 1 ? 'See final tally' : 'Next question';
+    return;
+  }
+
+  current++;
+  if(current >= questions.length){
+    updateDots();
+    showResults();
+  } else {
+    renderQuestion();
+  }
+});
+
+function showResults(){
+  const pct = Math.round((score / questions.length) * 100);
+  els.resultBadge.style.setProperty('--pct', pct);
+  els.resultPct.textContent = `${pct}%`;
+  els.resultLine.textContent = `You answered ${score} of ${questions.length} correctly in ${QUESTION_BANK[selectedCat].name}.`;
+  els.resultHeadline.textContent = pct === 100 ? 'Standing ovation.' : pct >= 60 ? 'Take a bow.' : 'The mic is yours next time.';
+  showScreen('results');
+}
+
+els.retryBtn.addEventListener('click', () => {
+  selectedCat = null;
+  els.startBtn.disabled = true;
+  els.startBtn.textContent = 'Choose a category to begin';
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  showScreen('setup');
+});
+</script>
+</body>
+</html>
